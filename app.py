@@ -1,7 +1,15 @@
 import streamlit as st
-import ollama
 import json
+import re
 import importlib
+
+try:
+    import ollama
+    HAS_OLLAMA = True
+except Exception:
+    ollama = None
+    HAS_OLLAMA = False
+
 import pricing_engine
 importlib.reload(pricing_engine)
 from pricing_engine import PricingEngine
@@ -118,7 +126,7 @@ with st.sidebar:
     subcat_pilihan = st.selectbox("Jenis / Kategori Produk", available_subcats)
 
     st.markdown("---")
-    st.caption("🔒 100% Offline AI Sales Advisor via Ollama & Local Engine")
+    st.caption("🔒 100% Instant Sales Advisor & Pricing Engine")
     st.markdown("💡 **Contoh Pertanyaan Sales:**")
     st.caption("- *Spesifikasi Paper Bag Handle Kraft 125 ukuran 20x20x25*")
     st.caption("- *Berapa harga box kebab small bahan ivory?*")
@@ -161,20 +169,33 @@ if user_prompt := st.chat_input("Tanyakan produk & spesifikasi, misal: Paper Bag
 
         # Fallback jika pencarian awal kosong
         if not results and engine:
-            try:
-                extract_prompt = f"""
-                Ekstrak kata kunci produk, bahan, atau ukuran dari teks berikut dalam 1 baris string singkat tanpa tanda kutip:
-                "{user_prompt}"
-                Contoh: paper bag handle kraft 125
-                """
-                llm_res = ollama.chat(
-                    model='llama3.2:3b',
-                    messages=[{'role': 'user', 'content': extract_prompt}]
-                )
-                clean_kw = llm_res['message']['content'].strip()
-                results = engine.search(clean_kw, category=kategori_pilihan, subcat=subcat_pilihan, limit=4)
-            except Exception:
-                pass
+            # 1. Ekstraksi cerdas kata kunci lokal (menghapus stopwords tanya/salam)
+            stopwords = {
+                "apa", "berapa", "spesifikasi", "tolong", "carikan", "rekomendasi", "harga",
+                "produk", "kemasan", "untuk", "dari", "yang", "dan", "di", "ke", "saya", "mau",
+                "minta", "dong", "ya", "halo", "hai", "bisa", "kasih", "tahu", "adakah"
+            }
+            clean_tokens = [w for w in re.split(r'\W+', user_prompt.lower()) if w and w not in stopwords]
+            if clean_tokens:
+                local_kw = " ".join(clean_tokens)
+                results = engine.search(local_kw, category=kategori_pilihan, subcat=subcat_pilihan, limit=4)
+
+            # 2. Jika masih belum ketemu dan Ollama tersedia, coba ekstrak via LLM
+            if not results and HAS_OLLAMA and ollama:
+                try:
+                    extract_prompt = f"""
+                    Ekstrak kata kunci produk, bahan, atau ukuran dari teks berikut dalam 1 baris string singkat tanpa tanda kutip:
+                    "{user_prompt}"
+                    Contoh: paper bag handle kraft 125
+                    """
+                    llm_res = ollama.chat(
+                        model='llama3.2:3b',
+                        messages=[{'role': 'user', 'content': extract_prompt}]
+                    )
+                    clean_kw = llm_res['message']['content'].strip()
+                    results = engine.search(clean_kw, category=kategori_pilihan, subcat=subcat_pilihan, limit=4)
+                except Exception:
+                    pass
 
         if results:
             top_match = results[0]
