@@ -1,17 +1,6 @@
 import streamlit as st
 import json
 import re
-import importlib
-
-try:
-    import ollama
-    HAS_OLLAMA = True
-except Exception:
-    ollama = None
-    HAS_OLLAMA = False
-
-import pricing_engine
-importlib.reload(pricing_engine)
 from pricing_engine import PricingEngine
 
 # Konfigurasi Halaman Modern
@@ -21,11 +10,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Bersihkan cache lama jika ada
-if "cache_cleared" not in st.session_state:
-    st.cache_resource.clear()
-    st.session_state.cache_cleared = True
 
 # Inisialisasi State Margin & Hasil Aktif
 if "current_margin" not in st.session_state:
@@ -88,20 +72,20 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Inisialisasi Engine
+# Inisialisasi Engine dengan Cache agar Cepat dan Ringan
+@st.cache_resource(show_spinner=False)
 def get_engine():
     try:
         return PricingEngine("data")
     except Exception as e:
-        st.error(f"Gagal memuat katalog produk: {e}")
         return None
 
 engine = get_engine()
 
 # Sidebar Controls
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/lightning-bolt.png", width=60)
-    st.title("⚡ Settings & Katalog")
+    st.title("⚡ 5 Min Price Ready")
+    st.caption("Sales Advisor & Dynamic Pricing")
     st.markdown("---")
     
     # Status Engine
@@ -167,35 +151,17 @@ if user_prompt := st.chat_input("Tanyakan produk & spesifikasi, misal: Paper Bag
             limit=4
         ) if engine else []
 
-        # Fallback jika pencarian awal kosong
+        # Fallback pencarian cerdas jika query awal belum ketemu
         if not results and engine:
-            # 1. Ekstraksi cerdas kata kunci lokal (menghapus stopwords tanya/salam)
             stopwords = {
                 "apa", "berapa", "spesifikasi", "tolong", "carikan", "rekomendasi", "harga",
                 "produk", "kemasan", "untuk", "dari", "yang", "dan", "di", "ke", "saya", "mau",
-                "minta", "dong", "ya", "halo", "hai", "bisa", "kasih", "tahu", "adakah"
+                "minta", "dong", "ya", "halo", "hai", "bisa", "kasih", "tahu", "adakah", "katalog"
             }
             clean_tokens = [w for w in re.split(r'\W+', user_prompt.lower()) if w and w not in stopwords]
             if clean_tokens:
                 local_kw = " ".join(clean_tokens)
                 results = engine.search(local_kw, category=kategori_pilihan, subcat=subcat_pilihan, limit=4)
-
-            # 2. Jika masih belum ketemu dan Ollama tersedia, coba ekstrak via LLM
-            if not results and HAS_OLLAMA and ollama:
-                try:
-                    extract_prompt = f"""
-                    Ekstrak kata kunci produk, bahan, atau ukuran dari teks berikut dalam 1 baris string singkat tanpa tanda kutip:
-                    "{user_prompt}"
-                    Contoh: paper bag handle kraft 125
-                    """
-                    llm_res = ollama.chat(
-                        model='llama3.2:3b',
-                        messages=[{'role': 'user', 'content': extract_prompt}]
-                    )
-                    clean_kw = llm_res['message']['content'].strip()
-                    results = engine.search(clean_kw, category=kategori_pilihan, subcat=subcat_pilihan, limit=4)
-                except Exception:
-                    pass
 
         if results:
             top_match = results[0]
