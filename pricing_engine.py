@@ -1,3 +1,4 @@
+import csv
 import glob
 import os
 import re
@@ -27,11 +28,17 @@ class PricingEngine:
     def _find_header_line(file_path: str) -> int:
         """Mendeteksi baris header secara dinamis dengan mencari baris berkolom utama."""
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for idx, line in enumerate(f):
-                low = line.lower()
-                if 'product' in low and ('material' in low or 'size' in low or 'cogs' in low or 'brand' in low):
-                    return idx
-                if idx > 15:
+            reader = csv.reader(f)
+            for row_idx, row in enumerate(reader):
+                low_cells = [c.strip().lower() for c in row if c.strip()]
+                # Abaikan baris penanda panduan format seperti [R-TP]-[Product]...
+                if any(c.startswith('[') for c in low_cells):
+                    continue
+                has_product = any(c == 'product' or 'product' in c for c in low_cells)
+                has_specs = any(any(k in c for k in ['material', 'size', 'cogs', 'brand']) for c in low_cells)
+                if has_product and has_specs:
+                    return row_idx
+                if row_idx > 200:
                     break
         return 0
 
