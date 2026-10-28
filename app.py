@@ -241,17 +241,25 @@ if st.session_state.active_product_result and engine:
         # Hitung harga jual reaktif berdasarkan input margin & batas minimum nett 25%
         sell_price, profit = engine.calculate_price(cogs, current_m)
         nett_price, nett_profit = engine.calculate_price(cogs, 25.0)
+        price_400k = top_match.get("price_400k", 0)
+        profit_400k = max(0, price_400k - cogs) if price_400k > 0 else 0
 
-        # 4. Tampilkan Metrik Finansial Reaktif Produk Utama
-        col1, col2, col3 = st.columns(3)
+        # 4. Tampilkan Metrik Finansial Reaktif Produk Utama (4 Kolom dengan Col 2: Profit 400k)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("COGS Vendor Dasar", f"Rp {cogs:,.0f}")
         with col2:
-            st.metric(f"Harga Jual (Margin {current_m:.2f}%)", f"Rp {sell_price:,.0f}", delta=f"Profit: Rp {profit:,.0f}")
+            st.metric(
+                "Harga Profit 400k",
+                f"Rp {price_400k:,.0f}" if price_400k > 0 else "-",
+                delta=f"Profit: Rp {profit_400k:,.0f}" if profit_400k > 0 else None
+            )
         with col3:
+            st.metric(f"Harga Jual {current_m:.2f}%", f"Rp {sell_price:,.0f}", delta=f"Profit: Rp {profit:,.0f}")
+        with col4:
             st.metric("Harga Nett (Batas Min 25%)", f"Rp {nett_price:,.0f}", delta=f"Profit Min: Rp {nett_profit:,.0f}")
 
-        st.info(f"💡 **Taktik Penawaran:** Pada margin **{current_m:.2f}%**, harga penawaran ideal ke klien adalah **Rp {sell_price:,.0f}** (profit **Rp {profit:,.0f}/pcs**). Jika klien menawar diskon volume, pertahankan harga di atas batas aman Nett **Rp {nett_price:,.0f}** (Margin 25%).")
+        st.info(f"💡 **Taktik Penawaran:** Pada margin **{current_m:.2f}%**, harga penawaran ideal ke klien adalah **Rp {sell_price:,.0f}** (profit **Rp {profit:,.0f}/pcs**). Untuk acuan profit 400k adalah **Rp {price_400k:,.0f}**, dan pertahankan harga di atas batas aman Nett **Rp {nett_price:,.0f}** (Margin 25%).")
 
         # 5. SEMUA ALTERNATIF VARIAN DENGAN SIMULASI MARGIN & KALKULASI HARGA MANDIRI
         if len(results) > 1:
@@ -292,14 +300,22 @@ if st.session_state.active_product_result and engine:
 
                     alt_sell, alt_profit = engine.calculate_price(alt_cogs, alt_m)
                     alt_nett, alt_nett_profit = engine.calculate_price(alt_cogs, 25.0)
+                    alt_price_400k = alt.get("price_400k", 0)
+                    alt_profit_400k = max(0, alt_price_400k - alt_cogs) if alt_price_400k > 0 else 0
 
-                    # 3 Metrik Finansial untuk Varian Alternatif
-                    m1, m2, m3 = st.columns(3)
+                    # 4 Metrik Finansial untuk Varian Alternatif
+                    m1, m2, m3, m4 = st.columns(4)
                     with m1:
                         st.metric("COGS Vendor Dasar", f"Rp {alt_cogs:,.0f}")
                     with m2:
-                        st.metric(f"Harga Jual (Margin {alt_m:.2f}%)", f"Rp {alt_sell:,.0f}", delta=f"Profit: Rp {alt_profit:,.0f}")
+                        st.metric(
+                            "Harga Profit 400k",
+                            f"Rp {alt_price_400k:,.0f}" if alt_price_400k > 0 else "-",
+                            delta=f"Profit: Rp {alt_profit_400k:,.0f}" if alt_profit_400k > 0 else None
+                        )
                     with m3:
+                        st.metric(f"Harga Jual (Margin {alt_m:.2f}%)", f"Rp {alt_sell:,.0f}", delta=f"Profit: Rp {alt_profit:,.0f}")
+                    with m4:
                         st.metric("Harga Nett (Batas Min 25%)", f"Rp {alt_nett:,.0f}", delta=f"Profit Min: Rp {alt_nett_profit:,.0f}")
 
-                    st.caption(f"💡 Estimasi keuntungan varian #{i}: **Rp {alt_profit:,.0f} per unit** pada margin **{alt_m:.2f}%** (Batas Nett 25%: **Rp {alt_nett:,.0f}**).")
+                    st.caption(f"💡 Estimasi keuntungan varian #{i}: **Rp {alt_profit:,.0f} per unit** pada margin **{alt_m:.2f}%** (Profit 400k: **Rp {alt_price_400k:,.0f}** | Batas Nett 25%: **Rp {alt_nett:,.0f}**).")

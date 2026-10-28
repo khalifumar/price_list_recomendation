@@ -89,7 +89,7 @@ class PricingEngine:
                     color = self._get_val(r_dict, ['Color'])
                     detail_color = self._get_val(r_dict, ['Detail Color'])
                     finishing = self._get_val(r_dict, ['Finishing'])
-                    qty = self._get_val(r_dict, ['Qty', 'Qty/Ctn', 'MOQ'])
+                    qty = self._get_val(r_dict, ['Qty', 'Qty.1', 'Qty.2', 'Qty/Ctn', 'MOQ', 'Qty Produksi / MOQ'])
                     pola = self._get_val(r_dict, ['Pola'])
 
                     # Cari COGS vendor terendah
@@ -104,6 +104,18 @@ class PricingEngine:
                         if p_cand in r_dict and self._parse_number(r_dict[p_cand]) > 0:
                             price_list = self._parse_number(r_dict[p_cand])
                             break
+
+                    # Ekstraksi Harga Profit 400k dari sheet atau kalkulasi berbasis MOQ/Qty
+                    price_400k = self._parse_number(r_dict.get('Price List', 0))
+                    if price_400k == 0:
+                        for c in ['Profit 400k', 'Profit 400 k', 'Profit 400']:
+                            if c in r_dict and self._parse_number(r_dict[c]) > 0:
+                                price_400k = self._parse_number(r_dict[c])
+                                break
+                    if price_400k == 0 and cogs > 0:
+                        moq_val = self._parse_number(qty)
+                        if moq_val > 0:
+                            price_400k = round(cogs + (400000.0 / moq_val))
 
                     specs = {
                         "Kategori Katalog": "Custom",
@@ -128,6 +140,7 @@ class PricingEngine:
                         "material": material,
                         "size": size,
                         "base_cogs": cogs,
+                        "price_400k": price_400k,
                         "price_list": price_list,
                         "specs": specs,
                         "search_str": f"{file_subcat} {brand} {prod_name} {material} {size} {finishing}".lower(),
@@ -190,6 +203,18 @@ class PricingEngine:
                             price_list = self._parse_number(r_dict[p_cand])
                             break
 
+                    # Ekstraksi Harga Profit 400k dari sheet atau kalkulasi berbasis MOQ
+                    price_400k = self._parse_number(r_dict.get('Price List', 0))
+                    if price_400k == 0:
+                        for c in ['Profit 400k', 'Profit 400 k', 'Profit 400']:
+                            if c in r_dict and self._parse_number(r_dict[c]) > 0:
+                                price_400k = self._parse_number(r_dict[c])
+                                break
+                    if price_400k == 0 and cogs > 0:
+                        moq_val = self._parse_number(moq)
+                        if moq_val > 0:
+                            price_400k = round(cogs + (400000.0 / moq_val))
+
                     cogs_sablon = (
                         self._parse_number(r_dict.get('COGS Sablon 1W1S', 0)) or 
                         self._parse_number(r_dict.get('COGS 1S 1W', 0))
@@ -217,6 +242,7 @@ class PricingEngine:
                         "material": material,
                         "size": size,
                         "base_cogs": cogs,
+                        "price_400k": price_400k,
                         "price_list": price_list,
                         "specs": specs,
                         "search_str": f"{file_subcat} {code} {prod_name} {material} {size}".lower(),
