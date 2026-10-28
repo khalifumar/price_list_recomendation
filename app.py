@@ -1,6 +1,8 @@
 import streamlit as st
 import json
 import re
+import importlib
+import pricing_engine
 from pricing_engine import PricingEngine
 
 # Konfigurasi Halaman Modern
@@ -76,7 +78,8 @@ st.markdown("""
 @st.cache_resource(show_spinner=False)
 def get_engine():
     try:
-        return PricingEngine("data")
+        importlib.reload(pricing_engine)
+        return pricing_engine.PricingEngine("data")
     except Exception as e:
         return None
 
@@ -99,14 +102,15 @@ with st.sidebar:
 
     if st.button("🔄 Reload Katalog Data", use_container_width=True):
         st.cache_resource.clear()
+        importlib.reload(pricing_engine)
         st.session_state.active_product_result = None
         st.rerun()
 
     st.markdown("---")
     kategori_pilihan = st.radio("Kategori Katalog", ["Semua", "Custom", "RTU"])
 
-    # Filter Sub-Kategori Dinamis
-    available_subcats = ["Semua"] + (engine.get_subcategories() if engine else [])
+    # Filter Sub-Kategori Dinamis (otomatis terfilter berdasarkan Custom/RTU)
+    available_subcats = ["Semua"] + (engine.get_subcategories(kategori_pilihan) if engine else [])
     subcat_pilihan = st.selectbox("Jenis / Kategori Produk", available_subcats)
 
     st.markdown("---")

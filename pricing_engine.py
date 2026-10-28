@@ -284,10 +284,15 @@ class PricingEngine:
         candidates.sort(key=lambda x: x[0], reverse=True)
         return [c[1] for c in candidates[:limit]]
 
-    def get_subcategories(self):
-        """Mengembalikan daftar sub-kategori unik dari katalog."""
+    def get_subcategories(self, category: str = "Semua"):
+        """Mengembalikan daftar sub-kategori unik dari katalog (bisa difilter berdasarkan Semua/Custom/RTU)."""
         subcats = set()
-        for item in self.all_items:
+        items = self.all_items
+        if category == "Custom":
+            items = self.custom_items
+        elif category == "RTU":
+            items = self.rtu_items
+        for item in items:
             subcats.add(item['subcat'])
         return sorted(list(subcats))
 
